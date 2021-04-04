@@ -22,28 +22,40 @@
 #
 #       matplotlib - show plots and images
 #       numpy - useful for math stuff in general
-#       io - need this for reading files
+#       PIL - need this for reading images
 #       sys - need this for terminal arguments
 #
 #================================================
 
 import matplotlib.pyplot as plt
 import numpy as np
-import io
+from PIL import Image
 import sys
 
 
+#================================================
+#
+#   INPUT PARSING METHODS
+#
+#       Methods for getting program parametres
+#       from either the user or from the
+#       filesystem for running the program.
+#
+#       Here, you find:
+#           - Arguments Parser
+#           - Image Parser
+#
+#================================================
 
-#================================================
-#
-#   Program Runtime Parametres Parsing
-#
-#       Get initial command line args and deal
-#       with retrieving image byte data here
-#       as needed.
-#
-#================================================
-def get_mode_and_file_from_terminal_params():
+# Based on the arguments provided when this
+# program is called via python in a terminal,
+# returns either the default or explicitly
+# provided program parametres.
+# Returns None, None if invalid input is detected
+# Returns an integer and string for program
+# mode of operation and filename repsectively
+# otherwise.
+def get_mode_and_filename_from_terminal_params():
 
     #DEFAULT PARAMETRES
     prog_mode = 1
@@ -84,4 +96,52 @@ def get_mode_and_file_from_terminal_params():
     #Return args if arguments accepted
     print("No confusing arguments found. Proceeding...")
     return prog_mode, file_name
-    
+
+# Get initial command line args and deal with
+# retrieving image byte data here as needed
+def get_image_from_filename( filename, preview_input = False ):
+    #Open up the image.
+    image = None
+    try:
+        image = Image.open(filename)
+    except FileNotFoundError:
+        print("File ", filename, " was not found. Aborting...")
+        return None
+    #Represent image as array
+    data = np.asarray(image)
+    #Describe the image provided
+    print("Data is of shape ", data.shape)
+    print("Data preview: \n", data)
+    #image2 = Image.fromarray(data)
+    #If preview enabled, have a pop-out window to show the input.
+    if preview_input:
+        plt.imshow( data, cmap='Greys')
+        plt.show()
+    #Return the image in array form
+    return image
+
+
+#================================================
+#
+#   IMAGE-RELATED HELPER METHODS
+#
+#       A set of methods useful for interacting
+#       with the numpy-array representation of
+#       the image is provided here.
+#
+#================================================
+
+# Returns the data in (x, y) of two-dimensional
+# array data.
+def get_in_image_of_xy( data, x, y ):
+    return data[y][x]
+
+# Sets the data in (x, y) of two dimensional 
+# array data with provided value value.
+def set_in_image_of_xy( data, x, y, value ):
+    data[y][x] = value
+    return data
+
+
+mode, filename = get_mode_and_filename_from_terminal_params()
+get_image_from_filename(filename)
