@@ -100,8 +100,8 @@ def get_image_from_filename( filename, preview_input = False ):
     #Represent image as array
     data = np.asarray(image)
     #Describe the image provided
-    print("Data is of shape ", data.shape)
-    print("Data preview: \n", data)
+    #print("Data is of shape ", data.shape)
+    #print("Data preview: \n", data)
     #image2 = Image.fromarray(data)
     #If preview enabled, have a pop-out window to show the input.
     if preview_input:
@@ -318,7 +318,6 @@ def main():
         # Perform FFT and output 1x2 plot of the
         # original image and the fourier signal.
 
-        print("Executing mode 1")
         # Keep record of the original image
         # resolution.
         height = len(img)
@@ -330,8 +329,6 @@ def main():
         up_dim = len(up_img)
         # Get the 2D Fourier Transform
         up_2dft = fft2d(up_img)
-        print(up_2dft)
-        print('(',len(up_2dft[0]),',',len(up_2dft),')')
         # Scale it to original size
         #ft = cv2.resize( up_2dft.astype(np.uint8), (width, height) )
         ft = up_2dft
@@ -342,14 +339,21 @@ def main():
         ax1.imshow(up_img, cmap='gray')
         # Create the logarithmic colormap of the
         # fourier transform as the rightside plot
-        ft = mag_2d_of_complex_2d(ft)
-        print(ft)
-        print(min_in_2d(ft))
-        print(max_in_2d(ft))
-        ax2.pcolormesh( range(up_dim), range(up_dim), ft, 
-                norm=colors.LogNorm( vmin=min_in_2d(ft), vmax=max_in_2d(ft) ), cmap='PuBu_r')
+        # Keep in mind to display not the literal
+        # Fourier Transform, which is complex, but
+        # its magnitudes.
+        mag_ft = mag_2d_of_complex_2d(ft)
+        min_mag_ft = min_in_2d(mag_ft)
+        max_mag_ft = max_in_2d(mag_ft)
+        mag_ft_graph = ax2.pcolormesh( 
+                range(up_dim), range(up_dim), mag_ft, 
+                norm=colors.LogNorm( vmin=min_mag_ft, vmax=max_mag_ft ), cmap='PuBu_r',
+                shading='auto')
+        fig.colorbar( mag_ft_graph, ax=ax2, extend='max')
         # Show the plot
         plt.show()
+        # Terminal verbosity
+        print("Executed program in mode 1. Now exiting!")
 
         return
     elif mode is 2:
