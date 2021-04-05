@@ -21,6 +21,30 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from PIL import Image
 import numpy as np
+import math
+
+
+#================================================
+#
+#   PROGRAM CONSTANTS <deprecated>
+#
+#       Any pre-runtime-set variables are kept
+#       here. Useful, in particular, for things
+#       which ened tuning.
+#
+#       Coefficients defining the noise filter
+#       are defined here.
+#
+#================================================
+
+# In terms of normalized distance from centre to
+# wall of the image, where is 0.5 denoted.
+DENOISING_CENTRE = 0.5
+# How rapidly the sigmoid function use applies.
+# Use high value for binary threshold; use
+# low value for soft transition.
+DENOISING_HARSHNESS = 3.0
+
 
 
 #================================================
@@ -177,6 +201,20 @@ def mag_2d_of_complex_2d( arr ):
             new_arr[j][i] = ( arr[j][i].real**2 + arr[j][i].imag**2 )**0.5
     return new_arr
 
+# Sigmoid function.
+def sigmoid(x):
+    return 1/( 1+math.exp(-x) )
+
+# Radial Mask Function: Used to reduce noise
+# the farther away out from the centre of a
+# square frame something is.
+# Distance is a normalized 0-1 where 0
+# indicates being at the centre of the image
+# while 1 indicates being in a centre of an
+# edge of a square image.
+def radial_inside_mask(x):
+    return -sigmoid( DENOISING_HARSHNESS*(x-DENOISING_CENTRE) )
+
 
 #================================================
 #
@@ -231,7 +269,7 @@ def ifft(x):
         f = np.exp(2j*np.pi*np.arange(N)/ N)
         X = np.concatenate([X_even+f[:int(N/2)]*X_odd, X_even+f[int(N/2):]*X_odd])
         X = X/2
-    return X
+        return X
 
 # Two-Dimensional Fourier Transform on 2d array x.
 def fft2d(x):
@@ -318,10 +356,6 @@ def main():
         # Perform FFT and output 1x2 plot of the
         # original image and the fourier signal.
 
-        # Keep record of the original image
-        # resolution.
-        height = len(img)
-        width = len(img[0])
         # Upscale, as needed, to an image of
         # resolution of 2^n for some natural
         # number n. Necessary for FFT.
@@ -352,7 +386,7 @@ def main():
         fig.colorbar( mag_ft_graph, ax=ax2, extend='max')
         # Show the plot
         plt.show()
-        # Terminal verbosity
+        # Terminal Verbosity
         print("Executed program in mode 1. Now exiting!")
 
         return
@@ -360,7 +394,46 @@ def main():
         # Denoise Output: Output a 1x2 plot of
         # original image and denoised image.
 
-        print("Executing mode 2")
+        # Keep record of the original image
+        # resolution.
+        height = len(img)
+        width = len(img[0])
+        # Upscale image for fft and apply fft
+        up_img = upsize_to_square_power_of_two( img )
+        up_dim = len(up_img)
+        up_fft = fft2d(up_img)
+        # De-noise (Filter High Frequencies)
+        # Also count zeros.
+        zeros = 0
+        for i in range(up_dim):
+            for j in range(up_dim):
+                mask = max(0, 
+                    min(12*(i/up_dim-0.25)*(i/up_dim-0.75),
+                        12*(j/up_dim-0.25)*(j/up_dim-0.75))
+                    -0.4
+                    )
+                up_fft[i][j] = up_fft[i][j]*mask
+                if mask is 0:
+                    zeros += 1
+        print("Out of the ", up_dim**2, " Fourier Coefficients, ", zeros, " are zeroes.")
+        # De-noise (Obtain image form)
+        up_img = ifft2d(up_fft)
+        # Remove Complex Addend (bugfix)
+        temp = np.empty( up_img.shape )
+        for i in range(up_dim):
+            for j in range(up_dim):
+                temp[i][j] = up_img[i][j].real
+        up_img = temp
+        # Resize back to original size
+        denoised_img = cv2.resize( up_img, (width,height) )
+        # Show plots
+        fig, (ax1, ax2) = plt.subplots(1,2)
+        fig.suptitle("Original Image and its following Denoised Version")
+        ax1.imshow(img, cmap='gray')
+        ax2.imshow(denoised_img, cmap='gray')
+        plt.show()
+        # Terminal Verbosity
+        print("Executed program in mode 2. Now exiting!")
 
         return
     elif mode is 3:
@@ -370,7 +443,7 @@ def main():
         # (B) Save the Fourier Transform Matrix
         # to CSV.
 
-        print("Executing mode 3")
+        print("Executed program in mode 3. Now exiting!")
 
         return
     elif mode is 4:
@@ -378,7 +451,7 @@ def main():
         # summarize the runtime complexity of
         # the Fourier Transform Algorithms.
 
-        print("Executing mode 4")
+        print("Executed program in mode 4. Now exiting!")
 
         return
     else:
