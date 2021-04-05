@@ -500,7 +500,7 @@ def main():
             heap = []
             for i in range(square_dim):
                 for j in range(square_dim):
-                    heapq.heappush(heap, ( abs(i**0.5+j**0.5-square_dim), i, j ) )
+                    heapq.heappush(heap, ( abs( (i-square_dim/2)**0.5+(j-square_dim/2)**0.5), i, j ) )
             # Zeroing
             for i in range(target_zeros):
                 throwaway, x, y = heapq.heappop(heap)
@@ -529,7 +529,7 @@ def main():
         # Save Compressed Fourier Matrices
         for i in range(6):
             save_name = filename.split('.')[0] + "CompressedBy" + str(compression_rates[i]) +"Percent.csv"
-            np.savetxt( save_name, compressed_img[i], delimiter=',')
+            np.savetxt( save_name, compressed_ffts[i], delimiter=',')
         # Prepare the figures of the 6 different 
         # levels of compression
         fig, subplots = plt.subplots(2,3)
@@ -551,7 +551,7 @@ def main():
 
         #size of matrix, capacity of computer, lets suppose 9 for now
         #e.g. so write 10 for 2 ** 9
-        size = 10
+        size = 11
         trials = 10
         runtime = np.zeros((2, size-5, trials+1))
 
