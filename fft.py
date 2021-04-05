@@ -143,5 +143,63 @@ def set_in_image_of_xy( data, x, y, value ):
     return data
 
 
-mode, filename = get_mode_and_filename_from_terminal_params()
-get_image_from_filename(filename)
+def lin_interpolate( val_1, val_2, pos_1, pos_2, pos ):
+    normalized_pos = (pos_1-pos)/(pos_2-pos_1)
+    val = val_1*normalized_pos + val_2*(1-normalized_pos)
+    return val
+    
+
+
+
+#================================================
+#
+#   MAIN
+#
+#================================================
+
+def main():
+    # Obtain user-defined program parametres
+    mode, filename = get_mode_and_filename_from_terminal_params()
+    # Stop for user errors
+    if mode == None or filename == None:
+        return
+    # Attempt to retrieve image data
+    imgdata = get_image_from_filename(filename)
+    # Stop for io errors
+    if imgdata == None:
+        return
+    
+    # Switch between program modes:
+    if mode == 1:
+        # Perform FFT and output 1x2 plot of the
+        # original image and the fourier signal.
+
+
+
+        return
+    elif mode == 2:
+        # Denoise Output: Output a 1x2 plot of
+        # original image and denoised image.
+
+
+        return
+    elif mode == 3:
+        # Double Functionality: (A) Compress the
+        # to various degrees and output the
+        # results in a 2x3 plot; and
+        # (B) Save the Fourier Transform Matrix
+        # to CSV.
+
+
+        return
+    elif mode == 4:
+        # 
+
+
+        return
+    else:
+        print("Illegal mode detected. Exiting.")
+        return
+
+if __name__ == "__main__":
+    main()
