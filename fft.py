@@ -15,22 +15,12 @@
 ##================================================================================================
 
 
-
-#================================================
-#
-#   IMPORTS
-#
-#       matplotlib - show plots and images
-#       numpy - useful for math stuff in general
-#       PIL - need this for reading images
-#       sys - need this for terminal arguments
-#
-#================================================
-
-import matplotlib.pyplot as plt
-import numpy as np
-from PIL import Image
 import sys
+import cv2
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+from PIL import Image
+import numpy as np
 
 
 #================================================
@@ -89,7 +79,7 @@ def get_mode_and_filename_from_terminal_params():
             args_valid = False
 
     #Return None if problems detected
-    if args_valid == False:
+    if args_valid is False:
         print("Detected option without argument. Aborting...")
         return None, None
 
@@ -103,7 +93,7 @@ def get_image_from_filename( filename, preview_input = False ):
     #Open up the image.
     image = None
     try:
-        image = Image.open(filename)
+        image = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
     except FileNotFoundError:
         print("File ", filename, " was not found. Aborting...")
         return None
@@ -120,7 +110,6 @@ def get_image_from_filename( filename, preview_input = False ):
     #Return the image in array form
     return image
 
-
 #================================================
 #
 #   IMAGE-RELATED HELPER METHODS
@@ -136,18 +125,173 @@ def get_image_from_filename( filename, preview_input = False ):
 def get_in_image_of_xy( data, x, y ):
     return data[y][x]
 
-# Sets the data in (x, y) of two dimensional 
+# Sets the data in (x, y) of two dimensional
 # array data with provided value value.
 def set_in_image_of_xy( data, x, y, value ):
     data[y][x] = value
     return data
 
+# Upsizes the image to nearest power of two
+# width and height as needed for fft's.
+def upsize_to_square_power_of_two(img):
+    max_dim = max( len(img), len(img[0]) )
+    new_dim = 2
+    while True:
+        if new_dim is max_dim:
+            break
+        elif new_dim > max_dim:
+            break
+        else:
+            new_dim *= 2
+    return cv2.resize(img, (new_dim,new_dim) )
 
-def lin_interpolate( val_1, val_2, pos_1, pos_2, pos ):
-    normalized_pos = (pos_1-pos)/(pos_2-pos_1)
-    val = val_1*normalized_pos + val_2*(1-normalized_pos)
-    return val
-    
+# Returns the minimum value in a two dimensional
+# array input arr.
+def min_in_2d( arr ):
+    min_val = float('inf')
+    for subarr in arr:
+        for element in subarr:
+            if element < min_val:
+                min_val = element
+    return min_val
+
+# Returns the maximum value in a two dimensional
+# array input arr.
+def max_in_2d( arr ):
+    max_val = float('-inf')
+    for subarr in arr:
+        for element in subarr:
+            if element > max_val:
+                max_val = element
+    return max_val
+
+# Returns the complex-numbered 2d array into a
+# real numbered 2d array comprising of the
+# magnitudes at each original element.
+def mag_2d_of_complex_2d( arr ):
+    height = len(arr)
+    width = len(arr[0])
+    new_arr = np.empty( (height, width) )
+    for i in range(height):
+        for j in range(width):
+            new_arr[j][i] = ( arr[j][i].real**2 + arr[j][i].imag**2 )**0.5
+    return new_arr
+
+
+#================================================
+#
+#   MATH IMPLEMENTATIONS
+#       includes FFT and iFFT's as well as
+#       useful saving and plotting functions.
+#       
+#       Methods completing DFT, FFT, iFFT,
+#       2D FFT, 2D iFFT are here.
+#
+#       Methods creating plots and saving
+#       transform arrays are also here.
+#
+#       Section's function implementations are
+#       all written by Ji Ming Li.
+#
+#================================================
+
+# Direct Fourier Transform on input 1D array x.
+def dft(x):
+    N = len(x)
+    n = np.arange(N)
+    k = n.reshape((N, 1))
+    e = np.exp(-2j * np.pi * k * n / N)
+
+    X = np.dot(e, x)
+    return X
+
+# Fast Fourier Transform on input 1D array x.
+def fft(x):
+    N = len(x)
+
+    if N ==1:
+        return x
+    else:
+        X_even = fft(x[::2])
+        X_odd = fft(x[1::2])
+        f = np.exp(-2j*np.pi*np.arange(N)/ N)
+        X = np.concatenate([X_even+f[:int(N/2)]*X_odd, X_even+f[int(N/2):]*X_odd])
+
+    return X
+
+# Inverse Fourier Transform on input 1D array x.
+def ifft(x):
+    N = len(x)
+
+    if N == 1:
+        return x
+    else:
+        X_even = ifft(x[::2])
+        X_odd = ifft(x[1::2])
+        f = np.exp(2j*np.pi*np.arange(N)/ N)
+        X = np.concatenate([X_even+f[:int(N/2)]*X_odd, X_even+f[int(N/2):]*X_odd])
+        X = X/2
+    return X
+
+# Two-Dimensional Fourier Transform on 2d array x.
+def fft2d(x):
+    N = len(x)
+    M = len(x[0])
+
+    X = np.empty([N, M], dtype=complex)
+
+    for i in range(M):
+        X[:,i] = fft(x[:,i])
+    for i in range(N):
+        X[i] = fft(X[i])
+
+    return X
+
+# Two-Dimensional Inverse Fourier Transform on
+# 2d array x.
+def ifft2d(x):
+    N = len(x)
+    M = len(x[0])
+
+    X = np.empty([N, M], dtype=complex)
+
+    for i in range(M):
+        X[:,i] = ifft(x[:,i])
+    for i in range(N):
+        X[i] = ifft(X[i])
+
+    return X
+
+# Simple uniformly scaled plot of 2d array.
+def plot(x):
+#    N = len(x)
+#    M = len(x[0])
+    plt.imshow(abs(x))
+    plt.show()
+
+# Displays the provided image in input x.
+def plotImage(x):
+    img = Image.fromarray(x, 'L')
+#    imgplot = plt.imshow(img)
+    img.show()
+
+# Creates a logarithmically y-scaled plot
+# on input two dimensional array x.
+# Modified from how it was originally written in colab
+# to fix some errors.
+#def logPlot(x):
+#    cmap = colors['plasma']
+#    cmap.set_bad(cmap(0))
+#    h, xedges, yedges = np.histogram2d(x)
+#    pcm = axes[1].pcolormesh(xedges, yedges, h.T, cmap=cmap,
+#                         norm=LogNorm(vmax=1.5e2), rasterized=True)
+#    fig.colorbar(pcm, ax=axes[1], label="# points", pad=0)
+#    axes[1].set_title("2d histogram and log color scale")
+
+# Saves the transform matrix x to file
+# with name name.
+#def saveToCSV(x, name):
+#    np.savetxt(name+".csv", a, delimiter=",")
 
 
 
@@ -161,40 +305,76 @@ def main():
     # Obtain user-defined program parametres
     mode, filename = get_mode_and_filename_from_terminal_params()
     # Stop for user errors
-    if mode == None or filename == None:
+    if mode is None or filename is None:
         return
     # Attempt to retrieve image data
-    imgdata = get_image_from_filename(filename)
+    img = get_image_from_filename(filename)
     # Stop for io errors
-    if imgdata == None:
+    if img is None:
         return
-    
+
     # Switch between program modes:
-    if mode == 1:
+    if mode is 1:
         # Perform FFT and output 1x2 plot of the
         # original image and the fourier signal.
 
-
+        print("Executing mode 1")
+        # Keep record of the original image
+        # resolution.
+        height = len(img)
+        width = len(img[0])
+        # Upscale, as needed, to an image of
+        # resolution of 2^n for some natural
+        # number n. Necessary for FFT.
+        up_img = upsize_to_square_power_of_two( img )
+        up_dim = len(up_img)
+        # Get the 2D Fourier Transform
+        up_2dft = fft2d(up_img)
+        print(up_2dft)
+        print('(',len(up_2dft[0]),',',len(up_2dft),')')
+        # Scale it to original size
+        #ft = cv2.resize( up_2dft.astype(np.uint8), (width, height) )
+        ft = up_2dft
+        # Construct the figure
+        fig, (ax1, ax2) = plt.subplots(1,2)
+        fig.suptitle("Image and its Fourier Transform")
+        # Add the image as the leftside plot
+        ax1.imshow(up_img, cmap='gray')
+        # Create the logarithmic colormap of the
+        # fourier transform as the rightside plot
+        ft = mag_2d_of_complex_2d(ft)
+        print(ft)
+        print(min_in_2d(ft))
+        print(max_in_2d(ft))
+        ax2.pcolormesh( range(up_dim), range(up_dim), ft, 
+                norm=colors.LogNorm( vmin=min_in_2d(ft), vmax=max_in_2d(ft) ), cmap='PuBu_r')
+        # Show the plot
+        plt.show()
 
         return
-    elif mode == 2:
+    elif mode is 2:
         # Denoise Output: Output a 1x2 plot of
         # original image and denoised image.
 
+        print("Executing mode 2")
 
         return
-    elif mode == 3:
+    elif mode is 3:
         # Double Functionality: (A) Compress the
         # to various degrees and output the
         # results in a 2x3 plot; and
         # (B) Save the Fourier Transform Matrix
         # to CSV.
 
+        print("Executing mode 3")
 
         return
-    elif mode == 4:
-        # 
+    elif mode is 4:
+        # Plotting Mode: Produces plots that
+        # summarize the runtime complexity of
+        # the Fourier Transform Algorithms.
 
+        print("Executing mode 4")
 
         return
     else:
