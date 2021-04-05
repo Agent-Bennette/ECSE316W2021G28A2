@@ -22,6 +22,7 @@ import matplotlib.colors as colors
 from PIL import Image
 import numpy as np
 import math
+import heapq
 
 
 #================================================
@@ -201,6 +202,18 @@ def mag_2d_of_complex_2d( arr ):
             new_arr[j][i] = ( arr[j][i].real**2 + arr[j][i].imag**2 )**0.5
     return new_arr
 
+# Returns the real-valued 2d array of arr by
+# ignoring all the imaginary components.
+def ignore_imaginaries( arr ):
+    # Remove Complex Addend (bugfix)
+    height = len(arr)
+    width = len(arr[0])
+    real_arr = np.empty( arr.shape )
+    for i in range(height):
+        for j in range(width):
+            real_arr[i][j] = arr[i][j].real
+    return real_arr
+
 # Sigmoid function.
 def sigmoid(x):
     return 1/( 1+math.exp(-x) )
@@ -214,6 +227,20 @@ def sigmoid(x):
 # edge of a square image.
 def radial_inside_mask(x):
     return -sigmoid( DENOISING_HARSHNESS*(x-DENOISING_CENTRE) )
+
+# Quadratic mask which uses a quadratic
+# function with a trough (no peak) where
+# positions where the function dips below
+# 0 are set to 0 and locations
+def mask_quadratic(x,y,dim,sinkage,harshness,radius):
+    return max(0, 
+                min(1,
+                    min(harshness*(x/dim-0.5-radius)*(x/dim-0.5+radius),
+                        harshness*(y/dim-0.5-radius)*(y/dim-0.5+radius))
+                    -sinkage 
+                    )
+                )
+
 
 
 #================================================
@@ -407,11 +434,7 @@ def main():
         zeros = 0
         for i in range(up_dim):
             for j in range(up_dim):
-                mask = max(0, 
-                    min(12*(i/up_dim-0.25)*(i/up_dim-0.75),
-                        12*(j/up_dim-0.25)*(j/up_dim-0.75))
-                    -0.4
-                    )
+                mask = mask_quadratic(i,j,up_dim,0.4,12,0.25)
                 up_fft[i][j] = up_fft[i][j]*mask
                 if mask is 0:
                     zeros += 1
@@ -419,11 +442,7 @@ def main():
         # De-noise (Obtain image form)
         up_img = ifft2d(up_fft)
         # Remove Complex Addend (bugfix)
-        temp = np.empty( up_img.shape )
-        for i in range(up_dim):
-            for j in range(up_dim):
-                temp[i][j] = up_img[i][j].real
-        up_img = temp
+        up_img = ignore_imaginaries(up_img)
         # Resize back to original size
         denoised_img = cv2.resize( up_img, (width,height) )
         # Show plots
@@ -443,6 +462,60 @@ def main():
         # (B) Save the Fourier Transform Matrix
         # to CSV.
 
+        # Compression Method
+        # Prioritizes zeroing based on how manhattan
+        # close coefficients are to the "middle"
+        def compress( img, square_dim, per_cent ):
+            # Make a copy for edits and returnage
+            compressed_img = np.copy(img)
+            # Figure out how many zeroes are needed
+            target_zeros = square_dim**2*per_cent//100
+            # Create an ordered list of coefficients
+            # for zeroing
+            heap = []
+            for i in range(square_dim):
+                for j in range(square_dim):
+                    heapq.heappush(heap, ( abs(i+j-square_dim), i, j ) )
+            # Zeroing
+            for i in range(target_zeros):
+                throwaway, x, y = heapq.heappop(heap)
+                compressed_img[x][y] = 0
+            return compressed_img
+        # Keep record of the original image
+        # resolution.
+        height = len(img)
+        width = len(img[0])
+        # Upscale image for fft and apply fft
+        up_img = upsize_to_square_power_of_two( img )
+        up_dim = len(up_img)
+        up_fft = fft2d(up_img)
+        # Compress Fouriers at 6 different levels
+        compression_rates = [0,10,30,50,80,95]
+        compressed_ffts = [up_fft, up_fft, up_fft, up_fft, up_fft, up_fft]
+        for i in range(6):
+            compressed_ffts[i] = compress(  compressed_ffts[i],
+                                            up_dim,
+                                            compression_rates[i]
+                                            )
+        # Translate Compressed Fouriers to Images
+        compressed_img = [img, img, img, img, img, img]
+        for i in range(6):
+            compressed_img[i] = ignore_imaginaries( ifft2d( compressed_ffts[i] ) )
+        # Save Compressed Fourier Matrices
+        for i in range(6):
+            save_name = filename.split('.')[0] + "CompressedBy" + str(compression_rates[i]) +"Percent.csv"
+            np.savetxt( save_name, compressed_img[i], delimiter=',')
+        # Prepare the figures of the 6 different 
+        # levels of compression
+        fig, subplots = plt.subplots(2,3)
+        fig.suptitle("Image Compressed at 6 Increasing Intense Levels")
+        for i in range(6):
+            subplots[i//3][i%3].imshow( compressed_img[i], cmap='gray' )
+            str_name = filename.split('.')[0] + " Image With " + str(compression_rates[i]) + "% Compression"
+            subplots[i//3][i%3].set_title(str_name)
+        # Show the plots
+        plt.show()
+        # Terminal Verbosity
         print("Executed program in mode 3. Now exiting!")
 
         return
@@ -451,6 +524,7 @@ def main():
         # summarize the runtime complexity of
         # the Fourier Transform Algorithms.
 
+        # Terminal Verbosity
         print("Executed program in mode 4. Now exiting!")
 
         return
