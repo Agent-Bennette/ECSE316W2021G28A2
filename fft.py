@@ -23,6 +23,7 @@ from PIL import Image
 import numpy as np
 import math
 import heapq
+import time
 
 
 #================================================
@@ -298,6 +299,20 @@ def ifft(x):
         X = X/2
         return X
 
+# Two-Dimensional Fourier Transform on 2d array x naive algorithm.
+def dft2d(x):
+  N = len(x)
+  M = len(x[0])
+
+  X = np.empty([N, M], dtype=complex)
+
+  for i in range(M):
+    X[:,i] = dft(x[:,i])
+  for i in range(N):
+    X[i] = dft(X[i])
+
+  return X
+
 # Two-Dimensional Fourier Transform on 2d array x.
 def fft2d(x):
     N = len(x)
@@ -390,11 +405,12 @@ def main():
         up_dim = len(up_img)
         # Get the 2D Fourier Transform
         up_2dft = fft2d(up_img)
+        up_2dft2 = np.fft.fft2(up_img)
         # Scale it to original size
         #ft = cv2.resize( up_2dft.astype(np.uint8), (width, height) )
         ft = up_2dft
         # Construct the figure
-        fig, (ax1, ax2) = plt.subplots(1,2)
+        fig, (ax1, ax2, ax3) = plt.subplots(1,3)
         fig.suptitle("Image and its Fourier Transform")
         # Add the image as the leftside plot
         ax1.imshow(up_img, cmap='gray')
@@ -411,6 +427,15 @@ def main():
                 norm=colors.LogNorm( vmin=min_mag_ft, vmax=max_mag_ft ), cmap='PuBu_r',
                 shading='auto')
         fig.colorbar( mag_ft_graph, ax=ax2, extend='max')
+
+        mag_ft2 = mag_2d_of_complex_2d(up_2dft2)
+        min_mag_ft2 = min_in_2d(mag_ft2)
+        max_mag_ft2 = max_in_2d(mag_ft2)
+        mag_ft_graph2 = ax3.pcolormesh( 
+                range(up_dim), range(up_dim), mag_ft2, 
+                norm=colors.LogNorm( vmin=min_mag_ft2, vmax=max_mag_ft2 ), cmap='PuBu_r',
+                shading='auto')
+        fig.colorbar( mag_ft_graph2, ax=ax3, extend='max')
         # Show the plot
         plt.show()
         # Terminal Verbosity
@@ -524,6 +549,61 @@ def main():
         # summarize the runtime complexity of
         # the Fourier Transform Algorithms.
 
+        #size of matrix, capacity of computer, lets suppose 9 for now
+        #e.g. so write 10 for 2 ** 9
+        size = 10
+        trials = 10
+        runtime = np.zeros((2, size-5, trials+1))
+
+        for i in range(size-5):
+            runtime[0][i][0] = 2**(i+5)
+            runtime[1][i][0] = 2**(i+5)
+            for j in range(trials):
+                arr = np.random.rand(2**(i+5),2**(i+5))
+                start_time = time.time()
+                dft2d(arr)
+                dft_end = time.time()
+                fft2d(arr)
+                fft_end = time.time()
+                runtime[0][i][j+1] = dft_end - start_time
+                runtime[1][i][j+1] = fft_end - dft_end
+
+        #x data
+        x = []
+        for i in range(5,size):
+            x.append(int(2**i))
+        #average
+        avgdft = []
+        for i in runtime[0]:
+            avgdft.append(np.average(i[1:]))
+
+        avgfft = []
+        for i in runtime[1]:
+            avgfft.append(np.average(i[1:]))
+
+        #std dev.
+        stddft = []
+        for i in runtime[0]:
+            stddft.append(np.std(i[1:]))
+
+        stdfft = []
+        for i in runtime[1]:
+            stdfft.append(np.std(i[1:]))
+
+        xpoints = x
+        ypoints = avgdft
+        zpoints = avgfft
+
+        fig, ax = plt.subplots()
+
+        ax.errorbar(xpoints, ypoints, yerr=stddft, label = "dft", solid_capstyle='projecting', capsize=2)
+        ax.errorbar(xpoints, zpoints, yerr=stdfft, label = "fft", solid_capstyle='projecting', capsize=2)
+        plt.title("runtime (second) comparison between dft and fft of different array size")
+        plt.xlabel("size of 2d array")
+        plt.ylabel("time in seconds")
+        plt.xscale('log', basex=2)
+        plt.legend()
+        plt.show()
         # Terminal Verbosity
         print("Executed program in mode 4. Now exiting!")
 
