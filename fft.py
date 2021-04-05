@@ -475,7 +475,7 @@ def main():
             heap = []
             for i in range(square_dim):
                 for j in range(square_dim):
-                    heapq.heappush(heap, ( abs(i+j-square_dim), i, j ) )
+                    heapq.heappush(heap, ( abs(i**0.5+j**0.5-square_dim), i, j ) )
             # Zeroing
             for i in range(target_zeros):
                 throwaway, x, y = heapq.heappop(heap)
