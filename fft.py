@@ -301,17 +301,17 @@ def ifft(x):
 
 # Two-Dimensional Fourier Transform on 2d array x naive algorithm.
 def dft2d(x):
-  N = len(x)
-  M = len(x[0])
+    N = len(x)
+    M = len(x[0])
 
-  X = np.empty([N, M], dtype=complex)
+    X = np.empty([N, M], dtype=complex)
 
-  for i in range(M):
-    X[:,i] = dft(x[:,i])
-  for i in range(N):
-    X[i] = dft(X[i])
+    for i in range(M):
+        X[:,i] = dft(x[:,i])
+    for i in range(N):
+        X[i] = dft(X[i])
 
-  return X
+    return X
 
 # Two-Dimensional Fourier Transform on 2d array x.
 def fft2d(x):
